@@ -2,7 +2,7 @@ const CACHE_NAME = 'pixel-tarot-v4';
 const APP_SHELL = [
   './',
   './index.html',
-  './タロット16.png',
+  './tarot16.png',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',

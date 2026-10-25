@@ -340,8 +340,37 @@
       galleryDetail: document.getElementById('gallery-detail')
     };
 
+    const reversedPreferenceKey = 'pixel-tarot-use-reversed';
+    try {
+      const saved = localStorage.getItem(reversedPreferenceKey);
+      if (saved === 'true' || saved === 'false') els.useReversed.checked = saved === 'true';
+    } catch {
+      // Keep the default when browser storage is unavailable.
+    }
+    els.useReversed.addEventListener('change', () => {
+      try {
+        localStorage.setItem(reversedPreferenceKey, String(els.useReversed.checked));
+      } catch {
+        // The setting still works for this session when persistence is blocked.
+      }
+    });
+
     let currentReading = [];
     let currentGalleryIndex = 0;
+    const readingTimers = new Set();
+
+    function scheduleReading(callback, delay) {
+      const timer = setTimeout(() => {
+        readingTimers.delete(timer);
+        callback();
+      }, delay);
+      readingTimers.add(timer);
+    }
+
+    function cancelReadingTimers() {
+      readingTimers.forEach(timer => clearTimeout(timer));
+      readingTimers.clear();
+    }
 
     function switchTab(targetId) {
       els.tabs.forEach(tab => {
@@ -414,6 +443,7 @@
 
         const copy = document.createElement('div');
         copy.className = 'card-copy';
+        copy.hidden = true;
 
         const title = document.createElement('div');
         title.className = 'card-title';
@@ -459,12 +489,13 @@
 
       item.revealed = true;
       sprite.classList.add(item.isReversed ? 'flipping-reversed' : 'flipping');
-      setTimeout(() => {
+      scheduleReading(() => {
         sprite.style.backgroundPosition = getSpritePosition(item.card.id, 160);
         if (item.isReversed) sprite.classList.add('reversed');
       }, 255);
-      setTimeout(() => {
+      scheduleReading(() => {
         sprite.classList.remove('flipping', 'flipping-reversed');
+        copy.hidden = false;
         copy.classList.add('visible');
         hint.textContent = 'REVEALED';
         button.disabled = true;
@@ -478,6 +509,7 @@
 
     els.form.addEventListener('submit', (event) => {
       event.preventDefault();
+      cancelReadingTimers();
       const spread = spreadMap[els.spread.value];
       currentReading = sampleCards(spread.count, els.useReversed.checked);
       els.status.textContent = 'カードを引きました。1枚ずつ選んでめくってください。';
@@ -488,11 +520,12 @@
 
     els.revealAll.addEventListener('click', () => {
       currentReading.forEach((item, index) => {
-        if (!item.revealed) setTimeout(() => revealCard(index), index * 180);
+        if (!item.revealed) scheduleReading(() => revealCard(index), index * 180);
       });
     });
 
     els.clear.addEventListener('click', () => {
+      cancelReadingTimers();
       currentReading = [];
       els.readingArea.replaceChildren();
       els.toolbar.style.display = 'none';
